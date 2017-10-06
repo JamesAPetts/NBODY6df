@@ -131,12 +131,6 @@
 *       Gamma/eta model: GMB = mass, AR = scale radius, GAM = exponent.
           READ (5,*)  (RG(K),K=1,3), (VG(K),K=1,3)
 *
-*       Jpetts - set VGCORE(t=0) ~ VG
-          DO 23 K=1,3
-              VGCORE(K) = VG(K)
-   23     END DO
-
-*
 *       Specify planar motion from SEMI & ECC for no disk & halo if VZ = 0.
           IF (DISK + VCIRC + GMB.EQ.0.0.AND.VG(3).EQ.0.0D0) THEN
               RAP = RG(1)
@@ -206,8 +200,7 @@
                   STOP
               END IF
 *       Specify the corresponding scale length of logarithmic halo.
-              ! MGi: remove recomputation RL2
-              RL2 = RCIRC**2 !*(VCIRC**2 - V02)/V02
+              RL2 = RCIRC**2*(VCIRC**2 - V02)/V02
 *       Define the asymptotic circular velocity due to halo.
               V02 = VCIRC**2
 *
@@ -244,9 +237,8 @@
           IF (RTIDE.EQ.0.0D0) RTIDE = (0.5/OMEGA**2)**0.3333
 *
           WRITE (6,65)  (RG(K),K=1,3), (VG(K),K=1,3), SQRT(V02)
-          ! MGi more sign number
-   65     FORMAT (/,12X,'SCALED ORBIT:    RG = ',3F8.2,
-     &                                 '  VG = ',3F8.2,'  V0 =',F8.2)
+   65     FORMAT (/,12X,'SCALED ORBIT:    RG = ',3F7.2,
+     &                                 '  VG = ',3F7.1,'  V0 =',F6.1)
       END IF
 *
 *       Include Plummer potential for 2D and 3D (use MP = 0 if not needed).
@@ -279,13 +271,7 @@
       TSCALE = TSTAR
 *
 *       Define tidal radius in scaled units for linearized field.
-!     MGi: add option 3
-      IF (KZ(14).LE.3) THEN
-
-         IF (GMG.EQ.0.AND.DISK.EQ.0) THEN
-            TIDAL(1)=OMEGA**2+(VCIRC**2/VSTAR**2)/R02
-            RTIDE = TIDAL(1)**(-1.0/3.0) 
-         endif
+      IF (KZ(14).LE.2) THEN
           RTIDE = (ZMASS/TIDAL(1))**0.3333
           WRITE (6,90)  (TIDAL(K),K=1,4), TSCALE, RTIDE
    90     FORMAT (/,12X,'TIDAL PARAMETERS:  ',1P,4E10.2,

@@ -1,4 +1,4 @@
-      SUBROUTINE NBINT(I,IKS,IR,XI,XIDOT)
+      SUBROUTINE NBINT(I,IKS,IR,FIRR,FD)
 *
 *
 *       Irregular integration.
@@ -7,19 +7,23 @@
       INCLUDE 'common6.h'
       COMMON/CHAINC/  XC(3,NCMAX),UC(3,NCMAX),BODYC(NCMAX),ICH,
      &                LISTC(LMAX)
-      REAL*8  XI(3),XIDOT(3),FIRR(3),FREG(3),FD(3),FDUM(3),DV(3)
-*       Jpetts - added variables and galaxy common
-      REAL*8  XDYNF(3),FDYNF(3),DFDYNF(3)
-      COMMON/GALAXY/ GMG,RG(3),VG(3),FG(3),FGD(3),TG,
-     &               OMEGA,DISK,A,B,V02,RL2,GMB,AR,GAM,ZDUM(7)
-      SAVE TCALL,ISTART
+      COMMON/PREDICT/ TPRED(NMAX)
+      REAL*8  XI(3),XIDOT(3),FIRR(3),FREG(3),FD(3),FDUM(3),DX(3),DV(3)
+      REAL*8  FCM(3),FCMD(3),FP(6),FPD(6)
+      SAVE TCALL,TCALL2,ISTART,TRY
       DATA ISTART /0/
+      LOGICAL TRY
 *
+*
+*       Predict body #I (and possible KS components) to order FDOT.
+      CALL JPRED(I)
 *
 *       Initialize binary search time to current TTOT at start/restart.
       IF (ISTART.EQ.0) THEN
           ISTART = 1
           TCALL = TTOT
+          TCALL2 = TTOT
+          TRY = .FALSE.
       END IF
 *
 *       Check regularization criterion for single particles.
@@ -31,38 +35,55 @@
       END IF
 *
 *       Include close encounter search for low-eccentric massive binaries.
-      IF (IKS.EQ.0.AND.STEP(I).LT.8.0*DTMIN.AND.TCALL.LT.TTOT) THEN
+      IF (IKS.EQ.0.AND.TCALL.LT.TTOT.AND.STEP(I).LT.8.0*DTMIN) THEN
 *       Consider massive single bodies in absence of subsystems. 
           IF (I.LE.N.AND.BODY(I).GT.2.0*BODYM.AND.NSUB.EQ.0) THEN
 *
-*       Obtain two-body elements and relative perturbation.
+*       Advance TCALL and obtain two-body elements & relative perturbation.
               TCALL = TTOT + 0.01
               JMIN = 0
               CALL ORBIT(I,JMIN,SEMI,ECC,GI)
 *
               EB = -0.5*BODY(I)*BODY(JMIN)/SEMI
-              IF (EB.LT.EBH.AND.GI.LT.0.25.AND.JMIN.GE.IFIRST) THEN
+              IF (EB.LT.EBH.AND.GI.LT.0.001.AND.JMIN.GE.IFIRST) THEN
                   APO = SEMI*(1.0 + ECC)
 *       Check eccentricity (cf. max perturbation) and neighbour radius.
-                  IF (ECC.LT.0.5.AND.APO.LT.0.02*RS(I)) THEN
+                  IF (ECC.LT.0.25.AND.APO.LT.0.02*RS(I)) THEN
 *                     WRITE (6,3)  NAME(I), NAME(JMIN), ECC, SEMI, EB
 *   3                 FORMAT (' KS TRY:    NAM E A EB ',
 *    &                                     2I6,F7.3,1P,2E10.2)
                       IKS = IKS + 1
                       ICOMP = I
                       JCOMP = JMIN
+*       Reduce TCALL below TTOT for second call to ensure equal TNEW.
                       TCALL = TTOT - 1.0D-04
                   END IF
               END IF
           END IF
       END IF
 *
-*       Obtain total force & first derivative.
+*       Perform KS search for massive wide binary candidates.
+      IF (IKS.EQ.0.AND.TCALL2.LT.TTOT.AND.STEP(I).LT.30.0*DTMIN) THEN
+*       Note extra safety tests inside routine SWEEP2.
+          IF (BODY(I).GT.20.0*BODYM.OR.TRY) THEN
+*       Use a logical variable to catch lighter second KS component.
+              TRY = .FALSE.
+              TCALL2 = TCALL2 + 0.01
+              DTCL = 30.0*DTMIN
+              RCL = 12.0*RMIN
+              CALL SWEEP2(I,IKS,DTCL,RCL)
+*       Reduce TCALL2 after first IKS > 0 to allow second call.
+              IF (IKS.GT.0) THEN
+                  TCALL2 = TTOT - 1.0D-04
+                  TRY = .TRUE.
+              END IF
+          END IF
+      END IF
+*
+*       Obtain irregular force & first derivative.
       DO 5 K = 1,3
           XI(K) = X(K,I)
           XIDOT(K) = XDOT(K,I)
-          FIRR(K) = 0.0D0
-          FD(K) = 0.0D0
     5 CONTINUE
 *
 *       Assume small mass at centre for special case of no neighbours.
@@ -83,15 +104,15 @@
 *       Choose force loop for single particle or regularized c.m. body.
       IF (I.LE.N) GO TO 20
 *
-*       Set KS pair index.
+*       Set KS pair index and components.
       IPAIR = I - N
       I2 = 2*IPAIR
       I1 = I2 - 1
 *
 *       Adopt c.m. approximation for small total perturbation.
       IF (LIST(1,I1).GT.0) THEN
-*       Obtain irregular force on perturbed c.m. body (including any chain).
-          CALL CMFIRR(I,IPAIR,XI,XIDOT,FIRR,FD)
+*       Correct irregular force on perturbed c.m. body (including any chain).
+          CALL CMFIRR(I,I1,FIRR,FD)
           GO TO 70
       END IF
 *
@@ -113,77 +134,115 @@
       GO TO 40
 *
 *       Sum over single particles (unperturbed case included).
-   30 DO 35 L = 2,NNB2
-          K = LIST(L,I)
-          A1 = X(1,K) - XI(1)
-          A2 = X(2,K) - XI(2)
-          A3 = X(3,K) - XI(3)
-          DV(1) = XDOT(1,K) - XIDOT(1)
-          DV(2) = XDOT(2,K) - XIDOT(2)
-          DV(3) = XDOT(3,K) - XIDOT(3)
-          RIJ2 = A1*A1 + A2*A2 + A3*A3
+*  30 DO 35 L = 2,NNB2
+*         K = LIST(L,I)
+*         A1 = X(1,K) - XI(1)
+*         A2 = X(2,K) - XI(2)
+*         A3 = X(3,K) - XI(3)
+*         DV(1) = XDOT(1,K) - XIDOT(1)
+*         DV(2) = XDOT(2,K) - XIDOT(2)
+*         DV(3) = XDOT(3,K) - XIDOT(3)
+*         RIJ2 = A1*A1 + A2*A2 + A3*A3
 *
-          DR2I = 1.0/RIJ2
-          DR3I = BODY(K)*DR2I*SQRT(DR2I)
-          DRDV = 3.0*(A1*DV(1) + A2*DV(2) + A3*DV(3))*DR2I
+*         DR2I = 1.0/RIJ2
+*         DR3I = BODY(K)*DR2I*SQRT(DR2I)
+*         DRDV = 3.0*(A1*DV(1) + A2*DV(2) + A3*DV(3))*DR2I
 *
-          FIRR(1) = FIRR(1) + A1*DR3I
-          FIRR(2) = FIRR(2) + A2*DR3I
-          FIRR(3) = FIRR(3) + A3*DR3I
-          FD(1) = FD(1) + (DV(1) - A1*DRDV)*DR3I
-          FD(2) = FD(2) + (DV(2) - A2*DRDV)*DR3I
-          FD(3) = FD(3) + (DV(3) - A3*DRDV)*DR3I
-   35 CONTINUE
+*         FIRR(1) = FIRR(1) + A1*DR3I
+*         FIRR(2) = FIRR(2) + A2*DR3I
+*         FIRR(3) = FIRR(3) + A3*DR3I
+*         FD(1) = FD(1) + (DV(1) - A1*DRDV)*DR3I
+*         FD(2) = FD(2) + (DV(2) - A2*DRDV)*DR3I
+*         FD(3) = FD(3) + (DV(3) - A3*DRDV)*DR3I
+*  35 CONTINUE
 *
-*       See whether any c.m. neighbours should be included.
-      IF (NNB2.EQ.NNB1) GO TO 60
+*       Replace irregular force loop by fast routine in C++ and OpenMP.
+*  30 CALL CNBINT(I,X,XDOT,BODY,NNB2,LIST(2,I),FIRR,FD)
 *
-   40 NNB3 = NNB2 + 1
-*       Set index for distinguishing c.m. or resolved components.
-      KDUM = 0
+*       See whether any c.m. neighbours should be considered.
+   30 IF (NNB2.EQ.NNB1) GO TO 60
 *
-*       Sum over regularized c.m. neighbours.
-      DO 50 L = NNB3,NNB1
-          K = LIST(L,I)
-          A1 = X(1,K) - XI(1)
-          A2 = X(2,K) - XI(2)
-          A3 = X(3,K) - XI(3)
-          DV(1) = XDOT(1,K) - XIDOT(1)
-          DV(2) = XDOT(2,K) - XIDOT(2)
-          DV(3) = XDOT(3,K) - XIDOT(3)
-          RIJ2 = A1*A1 + A2*A2 + A3*A3
-*
-*       See whether c.m. approximation applies (ignore unperturbed case).
-          J = K - N
-          KDUM = 2*J - 1
-          IF (RIJ2.GT.CMSEP2*R(J)**2.OR.LIST(1,KDUM).EQ.0) GO TO 48
-*
-*         KDUM = 2*J - 1
-          K = KDUM
-*       Sum over individual components of pair #J.
-   45     A1 = X(1,K) - XI(1)
-          A2 = X(2,K) - XI(2)
-          A3 = X(3,K) - XI(3)
-          DV(1) = XDOT(1,K) - XIDOT(1)
-          DV(2) = XDOT(2,K) - XIDOT(2)
-          DV(3) = XDOT(3,K) - XIDOT(3)
-          RIJ2 = A1*A1 + A2*A2 + A3*A3
-*
-*       Adopt c.m. approximation outside the effective perturber sphere.
-   48     DR2I = 1.0/RIJ2
-          DR3I = BODY(K)*DR2I*SQRT(DR2I)
-          DRDV = 3.0*(A1*DV(1) + A2*DV(2) + A3*DV(3))*DR2I
-*
-          FIRR(1) = FIRR(1) + A1*DR3I
-          FIRR(2) = FIRR(2) + A2*DR3I
-          FIRR(3) = FIRR(3) + A3*DR3I
-          FD(1) = FD(1) + (DV(1) - A1*DRDV)*DR3I
-          FD(2) = FD(2) + (DV(2) - A2*DRDV)*DR3I
-          FD(3) = FD(3) + (DV(3) - A3*DRDV)*DR3I
-          IF (K.EQ.KDUM) THEN
-              K = K + 1
-              GO TO 45
+*       Perform differential correction for active KS neighbours.
+   40 DO 50 LL = NNB2+1,NNB1
+          J = LIST(LL,I)
+*       See whether to sum over binary components.
+          JPAIR = J - N
+          J1 = 2*JPAIR - 1
+*       Skip unperturbed binary (treated as single particle).
+          IF (LIST(1,J1).EQ.0) THEN
+              GO TO 50
           END IF
+          IF (TIME - TPRED(J).EQ.0.0D0) THEN
+              ZZ = 1.0
+              IF (GAMMA(JPAIR).GT.1.0D-04) ZZ = 0.0
+              CALL KSRES2(JPAIR,J1,J2,ZZ)
+          ELSE
+              CALL JPRED(J)
+          END IF
+          J2 = J1 + 1
+*       Obtain individual c.m. force with single particle approximation.
+          A1 = X(1,J) - X(1,I)
+          A2 = X(2,J) - X(2,I)
+          A3 = X(3,J) - X(3,I)
+          RIJ2 = A1*A1 + A2*A2 + A3*A3
+*
+          DV(1) = XDOT(1,J) - XDOT(1,I)
+          DV(2) = XDOT(2,J) - XDOT(2,I)
+          DV(3) = XDOT(3,J) - XDOT(3,I)
+          DR2I = 1.0/RIJ2
+          DR3I = BODY(J)*DR2I*SQRT(DR2I)
+          DRDV = 3.0*(A1*DV(1) + A2*DV(2) + A3*DV(3))*DR2I
+*
+          FCM(1) = A1*DR3I
+          FCM(2) = A2*DR3I
+          FCM(3) = A3*DR3I
+          FCMD(1) = (DV(1) - A1*DRDV)*DR3I
+          FCMD(2) = (DV(2) - A2*DRDV)*DR3I
+          FCMD(3) = (DV(3) - A3*DRDV)*DR3I
+*
+*       Evaluate perturbation due to first component of body #J.
+          dr2 = 0.0
+          drdv = 0.0
+          DO 42 L = 1,3
+              dx(L) = X(L,J1) - X(L,I)
+              dv(L) = XDOT(L,J1) - XDOT(L,I)
+              dr2 = dr2 + dx(L)**2
+              drdv = drdv + dx(L)*dv(L)
+   42     CONTINUE
+*
+          dr2i = 1.0/dr2
+          dr3i = BODY(J1)*dr2i*SQRT(dr2i)
+          drdv = 3.0*drdv*dr2i
+*
+          DO 45 L = 1,3
+              FP(L) = dx(L)*dr3i
+              FPD(L) = (dv(L) - dx(L)*drdv)*dr3i
+   45     CONTINUE
+*
+*       Evaluate perturbation due to second component.
+          dr2 = 0.0
+          drdv = 0.0
+          DO 46 L = 1,3
+              dx(L) = X(L,J2) - X(L,I)
+              dv(L) = XDOT(L,J2) - XDOT(L,I)
+              dr2 = dr2 + dx(L)**2
+              drdv = drdv + dx(L)*dv(L)
+   46     CONTINUE
+*
+          dr2i = 1.0/dr2
+          dr3i = BODY(J2)*dr2i*SQRT(dr2i)
+          drdv = 3.0*drdv*dr2i
+*
+          DO 48 L = 1,3
+              FP(L+3) = dx(L)*dr3i
+              FPD(L+3) = (dv(L) - dx(L)*drdv)*dr3i
+   48     CONTINUE
+*
+*       Accumulate individual correction terms together for accuracy.
+          DO 49 L = 1,3
+              FIRR(L) = FIRR(L) + (FP(L) + FP(L+3) - FCM(L))
+              FD(L) = FD(L) + (FPD(L) + FPD(L+3) - FCMD(L))
+   49     CONTINUE
    50 CONTINUE
 *
 *       Include differential force treatment for regularized subsystem.
@@ -198,7 +257,7 @@
                   J = LISTC(L)
                   IF (J.GT.I) GO TO 70
                   IF (J.EQ.I) THEN
-                      CALL FCHAIN(I,0,XI,XIDOT,FIRR,FD)
+                      CALL FCHAIN(I,1,XI,XIDOT,FIRR,FD)
                       GO TO 70
                   END IF
    65         CONTINUE
@@ -208,10 +267,13 @@
 *       Check option for external tidal field using predicted FREG.
    70 DT = TIME - T0(I)
       IF (KZ(14).GT.0) THEN
+          DTR = TIME - T0R(I)
           DO 75 K = 1,3
-              FREG(K) = FR(K,I) + FRDOT(K,I)*DT
+              FREG(K) = FR(K,I) + FRDOT(K,I)*DTR
    75     CONTINUE
-          CALL XTRNLF(XI,XIDOT,FIRR,FREG,FD,FDUM,0,I)
+*       Jpetts- added argument I to end of XTRNLF (zero here)                                       
+          CALL XTRNLF(XI,XIDOT,FIRR,FREG,FD,FDUM,0,0)
+      END IF
 *
 *       Include the corrector and set new T0, F, FDOT, D1, D2 & D3.
       DTSQ = DT**2
@@ -222,27 +284,24 @@
       T0(I) = TIME
 *
       DO 80 K = 1,3
-	  DF = FI(K,I) - FIRR(K)
-	  FID = FIDOT(K,I)
-	  SUM = FID + FD(K)
-	  AT3 = 2.0D0*DF + DT*SUM
-	  BT2 = -3.0D0*DF - DT*(SUM + FID)
+          DF = FI(K,I) - FIRR(K)
+          FID = FIDOT(K,I)
+          SUM = FID + FD(K)
+          AT3 = 2.0D0*DF + DT*SUM
+          BT2 = -3.0D0*DF - DT*(SUM + FID)
 *
-	  X0(K,I) = XI(K) + (0.6D0*AT3 + BT2)*DTSQ12
-	  X0DOT(K,I) = XIDOT(K) + (0.75D0*AT3 + BT2)*DT13
+          X0(K,I) = XI(K) + (0.6D0*AT3 + BT2)*DTSQ12
+          X0DOT(K,I) = XIDOT(K) + (0.75D0*AT3 + BT2)*DT13
 *
-*         X0(K,I) = X(K,I)
-*         X0DOT(K,I) = XDOT(K,I)
-*
-	  FI(K,I) = FIRR(K)
-	  FIDOT(K,I) = FD(K)
+          FI(K,I) = FIRR(K)
+          FIDOT(K,I) = FD(K)
 *       Use total force for irregular step (cf. Makino & Aarseth PASJ, 1992).
           FDUM(K) = FIRR(K) + FR(K,I)
 *
           D0(K,I) = FIRR(K)
           D1(K,I) = FD(K)
-	  D2(K,I) = (3.0D0*AT3 + BT2)*DT2
-	  D3(K,I) = AT3*DT6
+          D2(K,I) = (3.0D0*AT3 + BT2)*DT2
+          D3(K,I) = AT3*DT6
 *       NOTE: These are real derivatives!
    80 CONTINUE
 *
@@ -277,6 +336,11 @@
       IF (TTMP.GT.2.0*STEP(I)) THEN
           IF (DMOD(TIME,2.0*STEP(I)).EQ.0.0D0) THEN 
               TTMP = MIN(2.0*STEP(I),SMAX)
+*       Include factor 4 increase for FPOLY initializations with small STEP.
+              IF (DT0.GT.10.0*TTMP.AND.
+     &            DMOD(TIME,2.0D0*TTMP).EQ.0.0D0) THEN
+                  TTMP = MIN(2.0*TTMP,SMAX)
+              END IF
           ELSE
               TTMP = STEP(I) 
           END IF
@@ -291,6 +355,11 @@
 *
 *       Set new block step and update next time.
       STEP(I) = TTMP
+*       Jpetts - enforce minimum timestep
+  111 IF (STEP(I) < 1.0d-8) THEN
+          STEP(I) = 2.0*STEP(I)
+          GO TO 111
+      END IF
       TNEW(I) = STEP(I) + T0(I)
 *
 *       See whether any KS candidates are in the same block as body #I.
@@ -310,7 +379,7 @@
 *
 *       See whether total force & derivative needs updating.
       IF (IR.EQ.0) THEN
-*       Extrapolate regular force & first derivatives to obtain F & FDOT.
+*       Combine regular force & first derivatives to obtain F & FDOT.
           DTR = TIME - T0R(I)
           DO 90 K = 1,3
               F(K,I) = 0.5D0*(FRDOT(K,I)*DTR + FR(K,I) + FIRR(K))
@@ -319,7 +388,7 @@
       END IF
 *
 *       Increase step counter and count perturbed c.m. steps.
-      NSTEPI = NSTEPI + 1
+*     NSTEPI = NSTEPI + 1
       IF (I.GT.N) THEN
           IF (LIST(1,2*IPAIR-1).GT.0) NSTEPB = NSTEPB + 1
       END IF

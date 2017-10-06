@@ -6,6 +6,9 @@
 *
       INCLUDE 'common6.h'
       COMMON/ECHAIN/  ECH
+*       Jpetts - added access to common galaxy variables here.
+      COMMON/GALAXY/  GMG,RG(3),VG(3),FG(3),FGD(3),TG,
+     &               OMEGA,DISK,A,B,V02,RL2,GMB,AR,GAM,ZDUM(7)
       SAVE  DTOFF
       DATA  DTOFF /100.0D0/
 *
@@ -168,6 +171,13 @@
 *
 *       Jpetts - recalculate dynamical friction variables
       CALL DYNFVARS
+
+!TEMP       -     Print out DYNFCOEF in to some file
+
+      WRITE(101,43) TTOT, DYNFCOEF
+   43 FORMAT (F10.5,F10.5)
+
+!TEMP
 *
 *       Scale average & maximum core density by the mean value.
       RHOD = 4.0*TWOPI*RHOD*RSCALE**3/(3.0*ZMASS)
@@ -283,6 +293,9 @@
      &          '  TC =',0P,I5,'  DELTA =',1P,E9.1,'  E(3) =',0P,F10.6,
      &          '  DETOT =',F10.6,'  WTIME =',I4,2I3)
       CALL FLUSH(6)
+
+
+
 *
 *       Perform automatic error control (RETURN on restart with KZ(2) > 1).
       CALL CHECK(DE)
@@ -299,7 +312,8 @@
       END IF
 *
 *       Check correction for c.m. displacements.
-      IF (KZ(31).GT.0) THEN
+*       Jpetts - Don't recentre when object unbound
+      IF (KZ(31).GT.0 .AND. MASSCL .NE. 0) THEN
           CALL CMCORR
       END IF
 *

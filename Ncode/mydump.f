@@ -12,8 +12,7 @@
       REAL*4  A,B,C,D,E,G,L,O,P,Q,S
       INTEGER K,I,NTSAVE
       REAL*8 MASSCL
-      INTEGER*4 BOUND, NBOUND
-      LOGICAL DFOFF
+      INTEGER*4 BOUND, NBOUND, DFOFF
 *
 *       Jpetts - added COMMON/DYNFRI to read/write.
       COMMON/NAMES/  NTOT,NPAIRS,NTTOT,A(NA)
@@ -50,8 +49,11 @@
       COMMON/GALAXY/  GMG,RG(3),VG(3),FG(3),FGD(3),TG,
      &               OMEGA,DISK,AA,BB,V02,RL2,GMB,AR,GAM,ZDUM(7)
 
-      COMMON/DYNFRI/ COULOG,ONEPI,RGDENSMAG,VCORE(3),MASSCL,BOUND(NMAX),
-     &               NBOUND,DYNFCOEF,DFOFF
+      COMMON/DYNFRI/ COULOG,BDENS,BVDISP,BRATIO,BDIST,EDYNFRI,ONEPI,
+     &               RGDENS(3),RGDENSMAG,VCORE(3),VGCORE(3), 
+     &               VGCOREMAG,MASSCL,DYNFPOT(NMAX),DYNFPOTBG(NMAX),
+     &               BOUND(NMAX),NBOUND,DYNFCOEF,DYNFTPREV,
+     &               VPREV(3),VDOT(3),DEDYNFRI(NMAX),ADIR(3),DFOFF
 *
 *       Open unit #J by reading dummy and rewinding.
       REWIND J
@@ -113,10 +115,12 @@
      *    (ZDUM(i),i=1,7)
 
 *         Jpetts - write coulog variables to file
-        write (J) COULOG,ONEPI,
-     *    RGDENSMAG,(VCORE(k),k=1,3),
-     *    MASSCL,(BOUND(i),i=1,ntot),NBOUND,
-     *    DYNFCOEF,DFOFF
+        write (J) COULOG,BDENS,BVDISP,BRATIO,BDIST,EDYNFRI,ONEPI,
+     *    (RGDENS(k),k=1,3),RGDENSMAG,(VCORE(k),k=1,3),
+     *    (VGCORE(k),k=1,3),VGCOREMAG,MASSCL,(DYNFPOT(i),i=1,ntot), 
+     *    (DYNFPOTBG(i),i=1,ntot),(BOUND(i),i=1,ntot),NBOUND,
+     *    DYNFCOEF,DYNFTPREV,(VPREV(k),k=1,3),(VDOT(k),k=1,3),
+     *    DEDYNFRI(NMAX),(ADIR(k),k=1,3),DFOFF
 
         END FILE J
         CLOSE (UNIT=J)
@@ -180,10 +184,12 @@
      *    (ZDUM(i),i=1,7)
 
 *         Jpetts - read in coulog variables from file
-        read (J) COULOG,ONEPI,
-     *    RGDENSMAG,(VCORE(k),k=1,3),
-     *    MASSCL,(BOUND(i),i=1,ntot),NBOUND,
-     *    DYNFCOEF,DFOFF
+        read (J) COULOG,BDENS,BVDISP,BRATIO,BDIST,EDYNFRI,ONEPI,
+     *    (RGDENS(k),k=1,3),RGDENSMAG,(VCORE(k),k=1,3),
+     *    (VGCORE(k),k=1,3),VGCOREMAG,MASSCL,(DYNFPOT(i),i=1,ntot), 
+     *    (DYNFPOTBG(i),i=1,ntot),(BOUND(i),i=1,ntot),NBOUND,
+     *    DYNFCOEF,DYNFTPREV,(VPREV(k),k=1,3),(VDOT(k),k=1,3),
+     *    DEDYNFRI(NMAX),(ADIR(k),k=1,3),DFOFF
 
         NTOT = NTSAVE
       END IF

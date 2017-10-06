@@ -10,9 +10,6 @@
       COMMON/PREDICT/ TPRED(NMAX)
       REAL*8  XI(3),XIDOT(3),FIRR(3),FREG(3),DV(3),FD(3),FDR(3)
       REAL*8  FRX(3),FDX(3)
-      !TEMP - JPETTS - TEST VARS
-      REAL*8 VGPASS(3), FDFM(3), FDFD(3)
-      !TEMP - JPETTS - TEST VARS
       INTEGER KLIST(LMAX),JJLIST(2*LMAX)
 *     SAVE FXI,FYI,FZI
 *
@@ -130,38 +127,9 @@
 *       Obtain the tidal perturbation (force and first derivative).
 *       Jpetts - added argument I to end of XTRNLF
           CALL XTRNLF(XI,XIDOT,FIRR,FREG,FD,FDR,1,I)
+*       Jpetts - add energy removed due to df on to EDYNFRI
+          EDYNFRI = EDYNFRI + DEDYNFRI(I)*DTR*DTR
 *!$omp end critical
-
-!TEMP ------ JPETTS
-*       Jpetts - include dynamical friction term
-          IF (I .ne. 0) THEN
-            IF (BOUND(I) == 1) THEN   
-              DO 221 K = 1,3
-                  VGPASS(K) = VGCORE(K)
-  221         CONTINUE                                     
-              CALL FDYNFRI(VGPASS,I,FDFM,FDFD)                                                   
-            END IF
-          END IF
-
-          WDOT = 0.0
-          W2DOT = 0.0
-          DO 222 K = 1,3
-              !TEMP --- JPETTS
-              PX = FDFM(K)
-              DPX = FDFD(K)
-              WDOT = WDOT + XIDOT(K)*PX
-              W2DOT = W2DOT + (FREG(K) + FIRR(K))*PX + XIDOT(K)*DPX
-  222     CONTINUE
-          EDYNFRI = EDYNFRI + BODY(I)*(0.5*W2DOT*DTR - WDOT)*DTR
-          PX = 0.0
-          DPX = 0.0
-
-    
-!TEMP ------- JPETTS
-
-
-
-
 *
 *       Form rate of tidal energy change during last regular step.
           IF (KZ(14).EQ.3) THEN
@@ -169,11 +137,8 @@
               W2DOT = 0.0
 *             W3DOT = 0.0
               DO 24 K = 1,3
-                  !TEMP --- JPETTS
-                  PX = FREG(K) - FDFM(K) - FRX(K)
-                  DPX = FDR(K) - FDFD(K) - FDX(K)
-                  !PX = FREG(K) - FRX(K)
-                  !DPX = FDR(K) - FDX(K)
+                  PX = FREG(K) - FRX(K)
+                  DPX = FDR(K) - FDX(K)
                   WDOT = WDOT + XIDOT(K)*PX
                   W2DOT = W2DOT + (FREG(K) + FIRR(K))*PX + XIDOT(K)*DPX
 *       Suppress incomplete third-order term which gives worse result.

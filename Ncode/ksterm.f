@@ -9,8 +9,6 @@
       COMMON/BINARY/  CM(4,MMAX),XREL(3,MMAX),VREL(3,MMAX),
      &                HM(MMAX),UM(4,MMAX),UMDOT(4,MMAX),TMDIS(MMAX),
      &                NAMEM(MMAX),NAMEG(MMAX),KSTARM(MMAX),IFLAG(MMAX)
-*     Jpetts - rearrange bound array elements of terminated regularisation.
-      INTEGER*4 SAVEBOUND
       REAL*8  SAVE(15),FREG(3),FDREG(3),F1(3),F1DOT(3),A(9)
 *
 *
@@ -248,7 +246,6 @@
           SAVE(13) = EPOCH(I)
           SAVE(14) = SPIN(I)
           SAVE(15) = ZLMSTY(I)
-          SAVEBOUND = BOUND(I)
           NAMEI = NAME(I)
           KSI = KSTAR(I)
           LAST = 2*NPAIRS - 1 + KCOMP
@@ -272,7 +269,6 @@
               EPOCH(J) = EPOCH(J1)
               SPIN(J) = SPIN(J1)
               ZLMSTY(J) = ZLMSTY(J1)
-              BOUND(J) = BOUND(J1)
               NAME(J) = NAME(J1)
               KSTAR(J) = KSTAR(J1)
               STEP(J) = STEP(J1)
@@ -301,7 +297,6 @@
           EPOCH(I) = SAVE(13)
           SPIN(I) = SAVE(14)
           ZLMSTY(I) = SAVE(15)
-          BOUND(I) = SAVEBOUND
           NAME(I) = NAMEI
           KSTAR(I) = KSI
    50 CONTINUE

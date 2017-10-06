@@ -6,8 +6,6 @@
 *
       INCLUDE 'common6.h'
       REAL*8  SAVE(15)
-*     Jpetts - rearrange bound array elements of regularised binary.
-      INTEGER*4 SAVEBOUND
       EXTERNAL RENAME
       COMMON/FSAVE/  SAVEIT(6)  
 *
@@ -61,7 +59,6 @@
           SAVE(13) = EPOCH(I)
           SAVE(14) = SPIN(I)
           SAVE(15) = ZLMSTY(I)
-          SAVEBOUND = BOUND(I)
           NAMEI = NAME(I)
           KSI = KSTAR(I)
 *
@@ -98,7 +95,6 @@
           EPOCH(I) = EPOCH(J)
           SPIN(I) = SPIN(J)
           ZLMSTY(I) = ZLMSTY(J)
-          BOUND(I) = BOUND(J)
           NAME(I) = NAME(J)
           KSTAR(I) = KSTAR(J)
           STEP(I) = STEP(J)
@@ -118,7 +114,6 @@
           EPOCH(J) = SAVE(13)
           SPIN(J) = SAVE(14)
           ZLMSTY(J) = SAVE(15)
-          BOUND(J) = SAVEBOUND
           NAME(J) = NAMEI
           KSTAR(J) = KSI
    10 CONTINUE

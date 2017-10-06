@@ -101,7 +101,7 @@
       END IF
 *
 *       Total energy = ZKIN - POT + ETIDE + EBIN + ESUB + EMERGE + ECOLL
-*                    + EMDOT
+*                    + EMDOT !+ EDYNFRI
 *
       RETURN
 *

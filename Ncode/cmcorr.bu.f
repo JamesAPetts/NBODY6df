@@ -5,31 +5,26 @@
 *       -----------------------------------------
 *
       INCLUDE 'common6.h'
-*       Jpetts - added access to common galaxy variables here.
-      COMMON/GALAXY/  GMG,RG(3),VG(3),FG(3),FGD(3),TG,
-     &               OMEGA,DISK,A,B,V02,RL2,GMB,AR,GAM,ZDUM(7)
 *
 *
-!Jpetts - recentre co-ords on rdens and vcore
 *       Initialize centre of mass variables.
       DO 10 K = 1,3
-          CMR(K) = RDENS(K)
-          CMRDOT(K) = VCORE(K)
+          CMR(K) = 0.0D0
+          CMRDOT(K) = 0.0D0
    10 CONTINUE
 *
-
-!       Form c.m. coordinate & velocity displacements.
-!      DO 20 I = IFIRST,NTOT
-!          DO 15 K = 1,3
-!              CMR(K) = CMR(K) + BODY(I)*X(K,I)
-!              CMRDOT(K) = CMRDOT(K) + BODY(I)*XDOT(K,I)
-!   15     CONTINUE
-!   20 CONTINUE
+*       Form c.m. coordinate & velocity displacements.
+      DO 20 I = IFIRST,NTOT
+          DO 15 K = 1,3
+              CMR(K) = CMR(K) + BODY(I)*X(K,I)
+              CMRDOT(K) = CMRDOT(K) + BODY(I)*XDOT(K,I)
+   15     CONTINUE
+   20 CONTINUE
 *
-!      DO 30 K = 1,3
-!          CMR(K) = CMR(K)/ZMASS
-!          CMRDOT(K) = CMRDOT(K)/ZMASS
-!   30 CONTINUE
+      DO 30 K = 1,3
+          CMR(K) = CMR(K)/ZMASS
+          CMRDOT(K) = CMRDOT(K)/ZMASS
+   30 CONTINUE
 *
 *       Include effect of c.m. motion in Plummer potential.
       IF (KZ(14).EQ.4) THEN
@@ -55,13 +50,9 @@
       BE(3) = BE(3) + 0.5*(ERRX + ERRV)
       E(11) = E(11) - 0.5*(ERRX + ERRV)
 *
-*       Perform a consistent shift of the density centre
-        !Jpetts - and RG and VG.
+*       Perform a consistent shift of the density centre.
       DO 50 K = 1,3
-          RDENS(K) = 0.0
-          RG(K) = RG(K) - CMR(K)
-          VG(K) = VG(K) - VCORE(K)
-          VCORE(K) = 0.0
+          RDENS(K) = RDENS(K) - CMR(K)
    50 CONTINUE
 *
 *       Subtract tidal corrections from total force & first derivative.

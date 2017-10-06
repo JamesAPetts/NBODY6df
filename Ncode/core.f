@@ -111,15 +111,16 @@
       RHO1 = MAX(RHO1,ZMASS/RSCALE**3)
       DO 75 K = 1,3
           RDENS(K) = RDENS(K)/RHO1
-          VCORE(K) = 0.0
 *       Ignore density centre for Plummer binary models except at end.
           IF (KZ(5).EQ.2.AND.TTOT.LT.TCRIT) THEN
               RDENS(K) = 0.0
           END IF
    75 CONTINUE
 *
-*       Jpetts - obtain the average core velocity. (VCORE initialised
-*                 above)
+*       Jpetts - obtain the average core velocity.
+      VCORE(1) = 0.0
+      VCORE(2) = 0.0
+      VCORE(3) = 0.0
       VELMASS = 0.0
       DO 76 L = 1,NC
           I = JLIST(L)

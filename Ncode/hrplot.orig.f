@@ -1,4 +1,4 @@
-      SUBROUTINE HRPLOT(luminosities,teff, kstara)
+      SUBROUTINE HRPLOT
 *
 *
 *       HR diagnostics of evolving stars.
@@ -11,16 +11,17 @@
       REAL*8  LUMS(10),TSCLS(20),GB(10)
       REAL*8  M0,M1,M2,LUM,LUM2,MC,ME,K2
 *
-      real*4 luminosities(nmax), teff(nmax)
-      integer kstara(nmax)
 *
-!     MGi
-      TPLOT = TIME
-!      WRITE (82,1)  NPAIRS, TPHYS, TPLOT
-    1 FORMAT (I8,F12.4,F12.4)
-      NS = N - 2*NPAIRS
+      WRITE (82,1)  NPAIRS, TPHYS
+    1 FORMAT (' ## BEGIN',I8,F9.1)
+*       Define the number of objects (rather than single stars).
+      NS = N - NPAIRS - NMERGE - (NCH - 1)
+*       Choose the number of singles (alternative definition, triples only).
+*     NS = N - 2*NPAIRS - NMERGE - NCH
       IMERGE = 0
-!      WRITE (83,1)  NS, TPHYS, TPLOT
+      NB = 0
+      NSTAR = 0
+      WRITE (83,1)  NS, TPHYS
 *
       DO 20 I = 1,N
           M0 = BODY0(I)*ZMBAR
@@ -102,9 +103,8 @@
               AGE = MAX(TPLOT,TEV0(J2))*TSTAR - EPOCH(J2)
               CALL STAR(KW2,M0,M2,TM,TN,TSCLS,LUMS,GB,ZPARS)
               CALL HRDIAG(M0,AGE,M2,TM,TN,TSCLS,LUMS,GB,ZPARS,
-     &                    RM2,LUM2,KW2,MC,RCC,ME,RE,K2) 
-*     Mark: remove division by RC
-              RI = SQRT(RI)
+     &                    RM2,LUM2,KW2,MC,RCC,ME,RE,K2)
+              RI = SQRT(RI)/RC
 *       Specify relevant binary mass.
               IF (BODY(J1).GT.0.0D0) THEN
                   BODYI = (M1 + M2)/ZMBAR
@@ -124,46 +124,29 @@
               ZL2 = LOG10(LUM2)
               TE1 = 0.25*(ZL1 - 2.0*R1) + 3.7
               TE2 = 0.25*(ZL2 - 2.0*R2) + 3.7
-              luminosities(j1) = zl1
-              luminosities(j2) = zl2
-              luminosities(icm) = log10(10**zl1 + 10**zl2)
-
-              teff(j1) = te1
-              teff(j2) = te2
-              teff(icm) = 0.0
-
-              kstara(j1) = kw
-              kstara(j2) = kw2
-              kstara(icm) = kstar(icm)
-
-! MGi
-!              WRITE (82,5)  NAME(J1), NAME(J2), KW, KW2, KSTAR(ICM),
-!     &             (X(K,ICM),K=1,3),
-!     &             (XDOT(K,ICM),K=1,3),
-!     &             RI, ECC, PB, SEMI, M1, M2, ZL1, ZL2, R1, R2, TE1, TE2
-    5         FORMAT (2I7,2I3,I4,6F10.4,F9.2,F10.5,10F8.3)
+              WRITE (82,5)  NAME(J1), NAME(J2), KW, KW2, KSTAR(ICM),
+     &            RI, ECC, PB, SEMI, M1, M2, ZL1, ZL2, R1, R2, TE1, TE2
+    5         FORMAT (2I6,2I3,I4,F6.1,F6.3,10F7.3)
+              NB = NB + 1
           ELSE
 *       Create output file for single stars (skip chain subsystem or ghost).
               IF (NAME(I).EQ.0.OR.BODY(I).EQ.0.0D0) GO TO 20
-              RI = X(1,I)**2 + X(2,I)**2 + X(3,I)**2
-*     Mark: remove division by RC and max(Ri,99)
-              RI = SQRT(RI)
-*              RI = MIN(RI,99.0D0)
+              RI = (X(1,I) - RDENS(1))**2 + (X(2,I) - RDENS(2))**2 +
+     &                                      (X(3,I) - RDENS(3))**2
+              RI = SQRT(RI)/RC
+              RI = MIN(RI,99.0D0)
               R1 = LOG10(RM)
               ZL1 = LOG10(LUM)
 *       Form LOG(Te) using L = 4*pi*R**2*\sigma*T**4 and solar value 3.7.
               TE = 0.25*(ZL1 - 2.0*R1) + 3.7
-
-              luminosities(i) = zl1 !Mgi
-              teff(i) = TE
-              kstara(i) = kw
-!              WRITE (83,10)  NAME(I), KW,
-!     &                 (X(K,I),K=1,3),
-!     &                 (XDOT(KK,I),KK=1,3),
-!     &                 RI, M1, ZL1, R1, TE
-   10         FORMAT (I10,I4,6F12.4,5F10.3)
+              WRITE (83,10)  NAME(I), KW, RI, M1, ZL1, R1, TE
+   10         FORMAT (I10,I4,5F10.3)
+              NSTAR = NSTAR + 1
           END IF
    20 CONTINUE
+      WRITE (82,30)  NB
+      WRITE (83,30)  NSTAR
+   30 FORMAT (' ## END',I8)
 *
 *       Update next plotting time.
       TPLOT = TPLOT + DTPLOT

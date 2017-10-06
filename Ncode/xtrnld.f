@@ -49,7 +49,7 @@
                   FREG(K) = 0.0
                   FDR(K) = 0.0
    25         CONTINUE
-*      Jpetts - added argument I to end of XTRNLF
+*      Jpetts, added argument I to end of XTRNLF
               CALL XTRNLF(XI,XIDOT,FIRR,FREG,FD,FDR,1,I)
               DO 28 K = 1,3
                   FR(K,I) = FR(K,I) + FREG(K)

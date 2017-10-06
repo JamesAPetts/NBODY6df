@@ -9,8 +9,9 @@
      &               OMEGA,DISK,A,B,V02,RL2,GMB,AR,GAM,ZDUM(7)
       REAL*8  XI(3),XIDOT(3),FIRR(3),FREG(3),FD(3),FDR(3),
      &        XG(3),XGDOT(3),FM(3),FMD(3),FS(3),FSD(3)
-*       Jpetts - ID
+*       Jpetts - dummy pass variable for VG and ID
       INTEGER ID
+      REAL*8 VGPASS(3)
 *
 *
 *       See whether to include a linearized galactic tidal force (two cases).
@@ -73,18 +74,20 @@
                   FDR(K) = FDR(K) + (FMD(K) - FSD(K))
    30         CONTINUE
           END IF
-*
+
 *       Jpetts - include dynamical friction term
           IF (ID == 0) GO TO 36
-          IF (BOUND(ID) == 1) THEN                              
-              CALL FDYNFRI(XI,XIDOT,FM,FMD)             
+          IF (BOUND(ID) == 1) THEN              
+              DO 31 K = 1,3
+                  VGPASS(K) = VGCORE(K)
+   31         CONTINUE                                     
+              CALL FDYNFRI(VGPASS,ID,FM,FMD)             
               DO 35 K = 1,3
                   FREG(K) = FREG(K) + FM(K)
                   FDR(K) = FDR(K) + FMD(K)
    35         CONTINUE                             
           END IF
    36     CONTINUE
-*
       END IF
 *
 *

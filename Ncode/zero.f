@@ -79,10 +79,18 @@
       NNBOPT = 0  ! NBODY6++ compatibility.
 *       Jpetts - initialise DYNFRI vars
       COULOG = 0.0D0
+      BDENS = 0.0D0
+      BVDISP = 0.0D0
+      BRATIO = 0.0D0
+      BDIST = 0.0D0
+      EDYNFRI = 0.0D0
+      DEDYNFRI = 0.0D0
       RGDENSMAG = 0.0D0
+      VGCOREMAG = 0.0D0
       MASSCL = 1.0D0
       NBOUND = 0
-      DFOFF = .false.
+      DYNFTPREV = 0.0D0
+      DFOFF = 0
 *
       DO 10 J = 1,KMAX
           KVEC(2*J-1) = J
@@ -104,6 +112,9 @@
           TEV(J) = 0.0
           TEV0(J) = 0.0
           KSTAR(J) = 0
+*       Jpetts - initialise DYNFRI vars
+          DYNFPOT(J) = 0.0D0
+          DYNFPOTBG(J) = 0.0D0
           BOUND(J) = 0.0D0
    40 CONTINUE
 *
@@ -111,7 +122,11 @@
           RDENS(K) = 0.0D0
           TIDAL(K) = 0.0
 *       Jpetts - initialise DYNFRI vars
+          RGDENS(K) = 0.0D0
           VCORE(K) = 0.0D0
+          VGCORE(K) = 0.0D0
+          VPREV(K) = 0.0D0
+          VDOT(K) = 0.0D0
    50 CONTINUE
       TIDAL(4) = 0.0
 *

@@ -17,8 +17,6 @@
       REAL*8  X1(3,4),V1(3,4),UI(4),VI(4),XREL2(3),VREL2(3)
       REAL*4  XS(3,NMAX),VS(3,NMAX),BODYS(NMAX),AS(20)
       REAL*4  XJ(3,6),VJ(3,6),BODYJ(6)
-      REAL*4 luminosities(nmax), teff(nmax) ! MGi
-      integer kstara(nmax) !MGi
       LOGICAL  FIRST,SECOND,THIRD
       SAVE  FIRST,SECOND,THIRD
       DATA  FIRST,SECOND ,THIRD/.TRUE.,.TRUE.,.TRUE./
@@ -35,7 +33,7 @@
 *
 *       Include KS pairs, triple, quad, mergers, collisions & chain.
       ETOT = ZKIN - POT + ETIDE + EBIN + ESUB + EMERGE + ECOLL + EMDOT
-     &                                                 + ECDOT !+ EDYNFRI
+     &                                                         + ECDOT
       IF (NCH.GT.0) THEN
           ETOT = ETOT + ECH
       END IF
@@ -153,36 +151,17 @@
       END IF
       VRMS = SQRT(2.0*ZKIN/ZMASS)*VSTAR
 *
-!MGi
-*       Jpetts - added COULOG, BDENS, BVDISP, EDYNFRI       
-      WRITE (6,41)
- 41   FORMAT (/,'           E(3)       ZKIN        POT        VIR ',
-     &          '     ETIDE ',
-     &          '      EBIN       ESUB     EMERGE      ECOLL ',
-     &          '     EMDOT      ECDOT        ECH ',
-     &          '     ESESC      EMESC     EDYNFRI') 
-*
-      WRITE (6,42)  E(3),ZKIN,-POT,-VIR+POT, ETIDE, EBIN, ESUB, EMERGE,
-     &                ECOLL, EMDOT, ECDOT, ECH, E(4), 
-     &                 E(5)+E(6)+E(7)+E(8), EDYNFRI
-
- 42   FORMAT (' #0 ',1P,15E11.3)
-
       WRITE (6,50)
    50 FORMAT (/,'    <R>  RTIDE  RDENS   RC    NC   MC   RHOD   RHOM',
      &                 '  CMAX   <Cn>   Ir/R   UN    NP   RCM    VCM',
      &                 '      AZ      EB/E   EM/E   TCR     T6  NESC',
-     &                 '  VRMS  COULOG     BDENS  BVDISP      DYNFCOEF',
-     &                 '       MASSCL     NBOUND  RGDENSMAG VGCOREMAG')
+     &                 '  VRMS')
 *
       WRITE (6,55)  RSCALE, RTIDE, RD, RC, NC, ZMC, RHOD, RHOM, CMAX,
      &              CNNB, COST, IUNP, NP, CMR(4), CMRDOT(4), AZ, EB, EM,
-     &              TCR, I6, NESC, VRMS, COULOG, BDENS,BVDISP,DYNFCOEF,
-     &              MASSCL,NBOUND,RGDENSMAG,VGCOREMAG
-*
+     &              TCR, I6, NESC, VRMS
    55 FORMAT (' #1',F5.2,F6.1,F6.2,F7.4,I5,F7.3,F6.0,F7.0,F6.0,F6.1,
-     &                   F7.3,I5,I6,F8.3,F8.4,F9.4,2F7.3,F6.2,2I6,F6.1,
-     &                   F8.2,E10.3,F8.2,2F14.8,I7,2F14.8)
+     &                   F7.3,I5,I6,F8.3,F8.4,F9.4,2F7.3,F6.2,2I6,F6.1)
 *
       WRITE (6,60)
    60 FORMAT (/,7X,'NNPRED    NBCORR  NBFULL  NBVOID    NICONV',
@@ -222,14 +201,13 @@
       END IF
 *
 *       Include diagnostics about cluster orbit in general external field.
-
-      IF (KZ(14).EQ.3) then
+      IF (KZ(14).EQ.3) THEN
           GZ = RG(1)*VG(2) - RG(2)*VG(1)
           SX = RBAR/1000.0
           WRITE (6,78)  NTAIL, (RG(K)*SX,K=1,3), (VG(K)*VSTAR,K=1,3),
      &                  GZ, ETIDE
    78     FORMAT (/,5X,'CLUSTER ORBIT    NT RG VG JZ ET ',
-     &                           I5,3F10.4,2X,3F11.4,1P,E16.8,E10.2)
+     &                                 I5,3F7.2,2X,3F7.1,1P,E16.8,E10.2)
       END IF
       IF (KZ(14).EQ.4) THEN
           WRITE (6,80)  TTOT, N, RSCALE, ZMASS, MP, DETOT
@@ -291,7 +269,7 @@
       END IF
 *
 *       Check optional output of single bodies & binaries.
-      IF (KZ(9).GT.0.OR.KZ(6).GT.0) THEN
+      IF (KZ(6).GT.0) THEN
           CALL BODIES
       END IF
 *
@@ -304,18 +282,18 @@
           PCL2 = RB2
       END IF
 *
-*       See whether to write data bank of binary diagnostics on unit 9.
-      IF (KZ(8).GE.2.AND.NPAIRS.GT.0) THEN
+*       See whether to write data bank of binary diagnostics on units 9 & 19.
+      IF (KZ(9).GT.0) THEN
           CALL BINDAT
-          IF (KZ(8).GT.3) THEN
+          IF (KZ(9).GT.1.AND.NMERGE.GT.0) THEN
               CALL HIDAT
           END IF
       END IF
 *
 *       Check optional diagnostics of evolving stars.
-!      IF (KZ(12).GT.0.AND.TIME.GE.TPLOT) THEN
-!          CALL HRPLOT
-!      END IF
+      IF (KZ(12).GT.0.AND.TIME.GE.TPLOT) THEN
+          CALL HRPLOT
+      END IF
 *
 *       Check optional writing of data on unit 3 (frequency NFIX). 
       IF (KZ(3).EQ.0.OR.NPRINT.NE.1) GO TO 100
@@ -325,53 +303,22 @@
       AS(2) = FLOAT(NPAIRS)
       AS(3) = RBAR
       AS(4) = ZMBAR
-      AS(5) = TSTAR
-      AS(6) = VSTAR
+      AS(5) = RTIDE
+      AS(6) = TIDAL(4)
       AS(7) = RDENS(1)
       AS(8) = RDENS(2)
       AS(9) = RDENS(3)
-      AS(10) = RG(1)*RBAR/1e3
-      AS(11) = RG(2)*RBAR/1e3
-      AS(12) = RG(3)*RBAR/1e3
-      AS(13) = VG(1)*VSTAR
-      AS(14) = VG(2)*VSTAR
-      AS(15) = VG(3)*VSTAR
-      AS(16) = RC
-      AS(17) = NC
-      AS(18) = VC
-      AS(19) = MC
-      AS(20) = RHOM
-*       Jpetts - added AS variables bellow.
-      AS(21) = COULOG
-      AS(22) = NBOUND
-      AS(23) = DYNFCOEF
-      AS(24) = VCORE(1)*VSTAR
-      AS(25) = VCORE(2)*VSTAR
-      AS(26) = VCORE(3)*VSTAR
-      AS(27) = RSCALE
-      AS(28) = ADIR(1)
-      AS(29) = ADIR(2)
-      AS(30) = ADIR(3)
-!      AS(1) = TTOT
-!      AS(2) = FLOAT(NPAIRS)
-!      AS(3) = RBAR
-!      AS(4) = ZMBAR
-!      AS(5) = RTIDE
-!      AS(6) = TIDAL(4)
-!      AS(7) = RDENS(1)
-!      AS(8) = RDENS(2)
-!      AS(9) = RDENS(3)
-!      AS(10) = TTOT/TCR
-!      AS(11) = TSTAR
-!      AS(12) = VSTAR
-!      AS(13) = RC
-!      AS(14) = NC
-!      AS(15) = VC
-!      AS(16) = RHOM
-!      AS(17) = CMAX
-!      AS(18) = RSCALE
-! 1    AS(19) = RSMIN
-!     ! AS(20) = DMIN1
+      AS(10) = TTOT/TCR
+      AS(11) = TSTAR
+      AS(12) = VSTAR
+      AS(13) = RC
+      AS(14) = NC
+      AS(15) = VC
+      AS(16) = RHOM
+      AS(17) = CMAX
+      AS(18) = RSCALE
+      AS(19) = RSMIN
+      AS(20) = DMIN1
 *
 *       Include prediction of unperturbed binaries (except ghosts).
       DO 84 J = 1,NPAIRS
@@ -388,7 +335,6 @@
               VS(K,I) = XDOT(K,I)
    85     CONTINUE
    90 CONTINUE
-*
 *
 *       Replace any ghosts by actual M, R & V (including 2 binaries).
       DO 95 JPAIR = 1,NPAIRS
@@ -508,25 +454,12 @@
       IF (FIRST) THEN
           OPEN (UNIT=3,STATUS='NEW',FORM='UNFORMATTED',FILE='OUT3')
           FIRST = .FALSE.
-       END IF
-*       Jpetts - upped NK to include dynfvars
-       NK = 30
-       
-       WRITE (3)  NTOT, MODEL, NRUN, NK
-!       Jpetts - added BOUND(J) and other AS(nk) vars to OUT3
-       if (kz(19).gt.0) then
-          call hrplot(luminosities, teff, kstara)
-          WRITE (3)  (AS(K),K=1,NK), (BODYS(J),J=1,NTOT),
-     &         ((XS(K,J),K=1,3),J=1,NTOT), ((VS(K,J),K=1,3),J=1,NTOT),
-     &         (NAME(J),J=1,NTOT),(BOUND(J),J=1,NTOT),
-     &         (kstara(j),j=1,ntot),(luminosities(j),j=1,ntot),
-     &         (teff(j),j=1,ntot)
-       else
-          WRITE (3)  (AS(K),K=1,NK), (BODYS(J),J=1,NTOT),
-     &         ((XS(K,J),K=1,3),J=1,NTOT), ((VS(K,J),K=1,3),J=1,NTOT),
-     &         (NAME(J),J=1,NTOT),(BOUND(J),J=1,NTOT)
-       endif
-
+      END IF
+      NK = 20
+      WRITE (3)  NTOT, MODEL, NRUN, NK
+      WRITE (3)  (AS(K),K=1,NK), (BODYS(J),J=1,NTOT),
+     &           ((XS(K,J),K=1,3),J=1,NTOT), ((VS(K,J),K=1,3),J=1,NTOT),
+     &           (NAME(J),J=1,NTOT)
 *     CLOSE (UNIT=3)
 *
 *       Produce output file for tidal tail members.
@@ -537,32 +470,32 @@
           END IF
           NK = 13
           WRITE (33) NTAIL, MODEL, NK
-*     
-          IF (NTAIL.GT.0) THEN
-             DO 110 I = ITAIL0,NTTOT
-                BODYS(I) = BODY(I)
-                DO 105 K = 1,3
-                   XS(K,I) = X(K,I) - RG(K)
-                   VS(K,I) = XDOT(K,I) - VG(K)
- 105            CONTINUE
- 110         CONTINUE
-*     Include cluster centre just in case.
-             DO 115 K = 1,3
-                AS(K) = RG(K)
-                AS(K+3) = VG(K)
-                AS(K+6) = RDENS(K)
- 115         CONTINUE
-             AS(10) = TTOT
-             AS(11) = RBAR
-             AS(12) = TSTAR
-             AS(13) = VSTAR
-             NK = 13
-             WRITE (33)  (AS(K),K=1,NK), (BODYS(J),J=ITAIL0,NTTOT),
-     &            ((XS(K,J),K=1,3),J=ITAIL0,NTTOT),
-     &            ((VS(K,J),K=1,3),J=ITAIL0,NTTOT),
-     &            (NAME(J),J=ITAIL0,NTTOT)
-          END IF
-       END IF
+*
+      IF (NTAIL.GT.0) THEN
+          DO 110 I = ITAIL0,NTTOT
+              BODYS(I) = BODY(I)
+              DO 105 K = 1,3
+                  XS(K,I) = X(K,I) - RG(K)
+                  VS(K,I) = XDOT(K,I) - VG(K)
+  105         CONTINUE
+  110     CONTINUE
+*       Include cluster centre just in case.
+          DO 115 K = 1,3
+              AS(K) = RG(K)
+              AS(K+3) = VG(K)
+              AS(K+6) = RDENS(K)
+  115     CONTINUE
+          AS(10) = TTOT
+          AS(11) = RBAR
+          AS(12) = TSTAR
+          AS(13) = VSTAR
+          NK = 13
+          WRITE (33)  (AS(K),K=1,NK), (BODYS(J),J=ITAIL0,NTTOT),
+     &                ((XS(K,J),K=1,3),J=ITAIL0,NTTOT),
+     &                ((VS(K,J),K=1,3),J=ITAIL0,NTTOT),
+     &                (NAME(J),J=ITAIL0,NTTOT)
+      END IF
+      END IF
 *
 *       Include all stars in same file (KZ(3) > 3; astrophysical units). 
       IF (KZ(3).GT.3.AND.NTAIL.GT.0) THEN

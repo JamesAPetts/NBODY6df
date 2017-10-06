@@ -8,7 +8,11 @@
       COMMON/CHAINC/  XC(3,NCMAX),UC(3,NCMAX),BODYC(NCMAX),ICH,
      &                LISTC(LMAX)
       REAL*8  XI(3),XIDOT(3),FIRR(3),FREG(3),DV(3),FD(3),FDR(3)
+*       Jpetts - added variables and galaxy common
       REAL*8  FRX(3),FDX(3)
+      COMMON/GALAXY/ GMG,RG(3),VG(3),FG(3),FGD(3),TG,
+     &               OMEGA,DISK,A,B,V02,RL2,GMB,AR,GAM,ZDUM(7)
+      REAL*8  XDYNF(3),FDYNF(3),DFDYNF(3)
 *
 *
 *       Set neighbour number, time-step & choice of central distance.
@@ -142,7 +146,8 @@
           END IF
 *
 *       Obtain the tidal perturbation (force and first derivative).
-          CALL XTRNLF(XI,XIDOT,FIRR,FREG,FD,FDR,1)
+*       Jpetts, added argument I to end of XTRNLF
+          CALL XTRNLF(XI,XIDOT,FIRR,FREG,FD,FDR,1,I)
 *
 *       Form rate of tidal energy change during last regular step.
           IF (KZ(14).EQ.3) THEN
